@@ -54,6 +54,11 @@ void loop(){
   Serial.print(fahrenheit);
   Serial.println("F");
   delay(2000);
+
+  Serial.print("currentValueOfBattery");
+  Serial.print(voltage);
+  Serial.println("V");
+  delay(2000);
 }
 
 float CelsiusToFarehieght(float celiusToConvert){ return (celiusToConvert*1.8) + 32; }
