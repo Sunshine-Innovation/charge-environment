@@ -1,0 +1,121 @@
+#include <ESP8266WiFi.h>
+ 
+String apiKey = "**************";
+const char* ssid =  "**************";     // Enter your WiFi Network's SSID
+const char* pass =  "**************"; // Enter your WiFi Network's Password
+const char* server = "https://soltechsinc.com/charged-by-sunshine/";
+ 
+
+ // Analog input pin
+int analogInPin  = A0;    
+// Analog Output of Sensor
+int sensorValue;          
+// Check Battery voltage using multimeter & add/subtract the value
+float calibration = 0.36; 
+int bat_percentage;
+int light = A1;
+int temp = A2;
+int red;
+int green;
+int pv_production;
+ 
+WiFiClient client;
+ 
+void setup()
+{
+  Serial.begin(115200);
+  Serial.println("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, pass);
+ 
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(100);
+    Serial.print("*");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+}
+ 
+void loop()
+{
+  int val = analogRead(light);
+  tempPin = analogRead(temp);
+  pinMode(red, OUTPUT);
+  pinMode(green, OUTPUT);
+
+  sensorValue = analogRead(analogInPin);
+
+  //multiply by two as voltage divider network is 100K & 100K Resistor
+  float voltage = (((sensorValue * 3.3) / 1024) * 2 + calibration); 
+
+  //2.8V as Battery Cut off Voltage & 4.2V as Maximum Voltage
+  bat_percentage = mapfloat(voltage, 2.8, 4.2, 0, 100); 
+ 
+  if (bat_percentage >= 100)
+  {
+    bat_percentage = 100;
+     digitalWrite(green, HIGH);
+  }
+  if (bat_percentage <= 0)
+  {
+    bat_percentage = 1;
+    digitalWrite(red, HIGH);
+  }
+ 
+  float tempPin = tempPin * 0.48828125;
+  float light = (float)val*(100/1024.0);
+  int Faher = (temp* 1.8) + 32;
+
+  Serial.print("Analog Value = ");
+  Serial.print(sensorValue);
+  Serial.print("\t Output Voltage = ");
+  Serial.print(voltage);
+  Serial.print("\t Battery Percentage = ");
+  Serial.println(bat_percentage);
+  delay(1000);
+ 
+  if (client.connect(server, 80))
+  {
+ 
+    String postStr = apiKey;
+    postStr += "&field1=";
+    postStr += String(voltage);
+    postStr += "&field2=";
+    postStr += String(bat_percentage);
+    postStr += "&field3=";
+    postStr += String(light);
+    postStr += "&field4=";
+    postStr += String(temp);
+    postStr += "&field5=";
+    postStr += String(pv_production);
+    postStr += "\r\n\r\n";
+ 
+    client.print("POST /update HTTP/1.1\n");
+    delay(100);
+    client.print("Host: api.thingspeak.com\n");
+    delay(100);
+    client.print("Connection: close\n");
+    delay(100);
+    client.print("X-THINGSPEAKAPIKEY: " + apiKey + "\n");
+    delay(100);
+    client.print("Content-Type: application/x-www-form-urlencoded\n");
+    delay(100);
+    client.print("Content-Length: ");
+    delay(100);
+    client.print(postStr.length());
+    delay(100);
+    client.print("\n\n");
+    delay(100);
+    client.print(postStr);
+    delay(100);
+  }
+  client.stop();
+  Serial.println("Sending....");
+  delay(15000);
+}
+ 
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
